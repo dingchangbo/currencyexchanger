@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowUpDown, Info, Globe, Shield, Zap, ChevronDown, RefreshCw, BarChart2, Radio, AlertCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { ArrowUpDown, Info, Globe, Shield, Zap, ChevronDown, RefreshCw, Radio, AlertCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { CURRENCIES, calculateRate } from '../data/currencies';
 import { CurrencySelectModal } from './CurrencySelectModal';
 import { fetchRealtimeExchangeRate } from '../services/ratesService';
@@ -140,7 +140,7 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold mb-3">
           <Radio className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-          <span>Real-Time Alpha Vantage FX Feed Active</span>
+          <span>Real-Time Live FX Rates Active</span>
         </div>
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[#0a2540] tracking-tight">
           Convert Currency
@@ -268,8 +268,8 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
           </div>
         </div>
 
-        {/* Currency Information Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+        {/* Inverse Exchange Rate Information */}
+        <div className="mt-5">
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs">
             <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-1">
               <span>Inverse Exchange Rate</span>
@@ -280,19 +280,6 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">
               Mid-market benchmark rate
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs">
-            <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-1">
-              <span>Alpha Vantage FX Feed</span>
-              <BarChart2 className="w-3.5 h-3.5 text-slate-400" />
-            </div>
-            <p className="text-base font-bold text-blue-700 truncate">
-              {rateData?.source || 'Alpha Vantage CURRENCY_EXCHANGE_RATE'}
-            </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Refreshed: {rateData?.lastRefreshed || 'Real-time'} ({rateData?.timeZone || 'UTC'})
             </p>
           </div>
         </div>
