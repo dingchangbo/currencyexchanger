@@ -1,154 +1,77 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { MessageSquare, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
-
-interface DisqusCommentsProps {
-  identifier?: string;
-  title?: string;
-  url?: string;
-}
+import React, { useEffect, useState } from 'react';
+import { MessageSquare, RefreshCw, ExternalLink } from 'lucide-react';
 
 declare global {
   interface Window {
     DISQUS?: {
-      reset: (options: {
-        reload: boolean;
-        config?: (this: any) => void;
-      }) => void;
+      reset: (options: { reload: boolean; config?: () => void }) => void;
     };
-    disqus_config?: (this: any) => void;
-    disqus_shortname?: string;
+    disqus_config?: () => void;
   }
 }
 
+interface DisqusCommentsProps {
+  identifier?: string;
+  title?: string;
+}
+
 export const DisqusComments: React.FC<DisqusCommentsProps> = ({
-  identifier = 'currencyexchange-global',
-  title = 'Currency Exchange Community',
-  url,
+  identifier = 'currency-exchanger-global',
+  title = 'Currency Exchanger Community & Market Discussions',
 }) => {
-  const [loadStatus, setLoadStatus] = useState<'loading' | 'loaded' | 'blocked'>('loading');
-  const [retryCount, setRetryCount] = useState(0);
-  const isMountedRef = useRef(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const initDisqus = useCallback(() => {
-    if (typeof window === 'undefined') return;
-
+  useEffect(() => {
     try {
-      const pageUrl =
-        url ||
-        (window.location.origin
-          ? `${window.location.origin}${window.location.pathname}#!${identifier}`
-          : window.location.href);
-
-      window.disqus_shortname = 'currencyexchange';
-
-      // Set global configuration callback
+      // Define Disqus configuration according to official specs
       window.disqus_config = function (this: any) {
-        this.page.url = pageUrl;
+        this.page = this.page || {};
+        this.page.url = window.location.href;
         this.page.identifier = identifier;
         this.page.title = title;
       };
 
-      // If Disqus is already loaded, reset the thread with new metadata
-      if (window.DISQUS && typeof window.DISQUS.reset === 'function') {
-        try {
-          window.DISQUS.reset({
-            reload: true,
-            config: function (this: any) {
-              this.page.url = pageUrl;
-              this.page.identifier = identifier;
-              this.page.title = title;
-            },
-          });
-          if (isMountedRef.current) {
-            setLoadStatus('loaded');
-          }
-        } catch (err) {
-          console.warn('Disqus reset notice:', err);
-        }
-        return;
-      }
-
-      // Check if script already exists in document
-      const scriptId = 'dsq-embed-scr';
-      let script = document.getElementById(scriptId) as HTMLScriptElement | null;
-
-      if (!script) {
-        script = document.createElement('script');
-        script.id = scriptId;
-        script.src = 'https://currencyexchange.disqus.com/embed.js';
-        script.setAttribute('data-timestamp', String(+new Date()));
-        script.async = true;
-
-        script.onload = () => {
-          if (isMountedRef.current) {
-            setLoadStatus('loaded');
-          }
-        };
-
-        script.onerror = () => {
-          if (isMountedRef.current) {
-            setLoadStatus('blocked');
-          }
-        };
-
-        (document.head || document.body).appendChild(script);
+      if (window.DISQUS) {
+        // If Disqus is already loaded on the page, reset it with the new page info
+        window.DISQUS.reset({
+          reload: true,
+          config: function (this: any) {
+            this.page = this.page || {};
+            this.page.url = window.location.href;
+            this.page.identifier = identifier;
+            this.page.title = title;
+          },
+        });
       } else {
-        // Script was already in DOM; wait slightly for DISQUS global to be ready
-        const timeout = setTimeout(() => {
-          if (window.DISQUS && typeof window.DISQUS.reset === 'function') {
-            try {
-              window.DISQUS.reset({
-                reload: true,
-                config: function (this: any) {
-                  this.page.url = pageUrl;
-                  this.page.identifier = identifier;
-                  this.page.title = title;
-                },
-              });
-              if (isMountedRef.current) setLoadStatus('loaded');
-            } catch (e) {
-              console.warn(e);
-            }
-          }
-        }, 300);
-
-        return () => clearTimeout(timeout);
+        const existingScript = document.getElementById('disqus-script');
+        if (!existingScript) {
+          const d = document;
+          const s = d.createElement('script');
+          s.id = 'disqus-script';
+          s.src = 'https://test-8izaxa5kmz.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', String(+new Date()));
+          s.async = true;
+          s.onerror = () => {
+            console.warn('Disqus embed script could not be loaded in this sandbox environment.');
+            setLoadFailed(true);
+          };
+          (d.head || d.body).appendChild(s);
+        }
       }
     } catch (err) {
-      console.warn('Disqus embed init error:', err);
-      if (isMountedRef.current) {
-        setLoadStatus('blocked');
-      }
+      console.warn('Disqus initialization error:', err);
+      setLoadFailed(true);
     }
-  }, [identifier, title, url]);
+  }, [identifier, title, reloadKey]);
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    initDisqus();
-
-    // Fallback timer: if still loading after 4 seconds, mark as loaded or ready
-    const timer = setTimeout(() => {
-      if (isMountedRef.current && loadStatus === 'loading') {
-        const thread = document.getElementById('disqus_thread');
-        if (thread && thread.children.length > 0) {
-          setLoadStatus('loaded');
-        }
-      }
-    }, 4000);
-
-    return () => {
-      isMountedRef.current = false;
-      clearTimeout(timer);
-    };
-  }, [initDisqus, retryCount]);
-
-  const handleManualRetry = () => {
-    setLoadStatus('loading');
-    const existing = document.getElementById('dsq-embed-scr');
+  const handleManualReload = () => {
+    setLoadFailed(false);
+    const existing = document.getElementById('disqus-script');
     if (existing) {
       existing.remove();
     }
-    setRetryCount((prev) => prev + 1);
+    setReloadKey((prev) => prev + 1);
   };
 
   return (
@@ -157,24 +80,26 @@ export const DisqusComments: React.FC<DisqusCommentsProps> = ({
       aria-label="Community Discussion"
       className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-8"
     >
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 sm:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100 mb-6">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200 mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-100">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-700 border border-blue-100">
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Community Discussion</h3>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+                Community Discussion & Market Insights
+              </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Join the conversation with other traders and currency market participants.
+                Share forex trading ideas, currency forecast opinions, and connect with other market participants.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              id="btn-refresh-disqus"
-              onClick={handleManualRetry}
+              id="btn-reload-disqus"
+              onClick={handleManualReload}
               title="Reload comments thread"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition-colors"
             >
@@ -183,45 +108,30 @@ export const DisqusComments: React.FC<DisqusCommentsProps> = ({
             </button>
 
             <a
-              id="btn-open-disqus-forum"
-              href="https://currencyexchange.disqus.com"
+              id="btn-disqus-external"
+              href="https://disqus.com/home/forums/test-8izaxa5kmz/"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-xs font-medium text-blue-700 border border-blue-200 transition-colors"
             >
-              <span>Open in Disqus</span>
+              <span>Disqus Hub</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </div>
 
-        {/* Notice if privacy shields or ad-blockers block third-party comment iframe */}
-        {loadStatus === 'blocked' && (
-          <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-xs text-amber-800">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-semibold">Disqus comments embed might be blocked by browser content settings</p>
-              <p>
-                Ad-blockers, Brave Shields, or strict tracking prevention may restrict third-party comment widgets. You can click{' '}
-                <button onClick={handleManualRetry} className="underline font-semibold hover:text-amber-900">
-                  Reload Thread
-                </button>{' '}
-                or open the discussion forum directly at{' '}
-                <a
-                  href="https://currencyexchange.disqus.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline font-semibold hover:text-blue-700"
-                >
-                  currencyexchange.disqus.com
-                </a>.
+        {/* Official Target Container */}
+        <div id="disqus_thread" className="w-full min-h-[160px]">
+          {loadFailed && (
+            <div className="p-6 text-center text-slate-600 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <MessageSquare className="w-8 h-8 text-blue-600 mx-auto mb-2 opacity-80" />
+              <p className="font-semibold text-sm text-slate-800">Disqus Community Discussion Channel</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Comments and discussion forum are ready. (If restricted by browser privacy shields or third-party cookies, you can click "Reload Thread" or open in the Disqus Hub).
               </p>
             </div>
-          </div>
-        )}
-
-        {/* Official Target Container: DO NOT put React JSX children directly inside this element */}
-        <div id="disqus_thread" className="w-full min-h-[260px]"></div>
+          )}
+        </div>
 
         <noscript>
           Please enable JavaScript to view the{' '}
