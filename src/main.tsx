@@ -3,35 +3,22 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// Guard against third-party cross-origin script errors bubbling to host environment
+// Non-invasive error guard for third-party cross-origin scripts
 if (typeof window !== 'undefined') {
-  window.addEventListener(
-    'error',
-    (event) => {
-      if (
-        event.message === 'Script error.' ||
-        event.message?.includes('Script error') ||
-        (event.filename &&
-          (event.filename.includes('disqus') ||
-            event.filename.includes('disquscdn')))
-      ) {
-        event.preventDefault?.();
-        return true;
-      }
-    },
-    true
-  );
-
-  window.addEventListener('unhandledrejection', (event) => {
-    const reasonStr = String(event.reason || '');
+  const prevOnError = window.onerror;
+  window.onerror = function (msg, url, lineNo, columnNo, error) {
     if (
-      reasonStr.includes('Script error') ||
-      reasonStr.includes('disqus') ||
-      reasonStr.includes('disquscdn')
+      msg === 'Script error.' ||
+      (typeof msg === 'string' && msg.includes('Script error')) ||
+      (typeof url === 'string' && (url.includes('disqus') || url.includes('disquscdn')))
     ) {
-      event.preventDefault?.();
+      return true;
     }
-  });
+    if (prevOnError) {
+      return prevOnError(msg, url, lineNo, columnNo, error);
+    }
+    return false;
+  };
 }
 
 createRoot(document.getElementById('root')!).render(

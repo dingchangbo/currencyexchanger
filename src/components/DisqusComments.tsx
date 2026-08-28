@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { MessageSquare, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { MessageSquare, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface DisqusCommentsProps {
   identifier?: string;
@@ -16,6 +16,7 @@ declare global {
       }) => void;
     };
     disqus_config?: (this: any) => void;
+    disqus_shortname?: string;
   }
 }
 
@@ -24,55 +25,131 @@ export const DisqusComments: React.FC<DisqusCommentsProps> = ({
   title = 'Currency Exchange Community',
   url,
 }) => {
-  const [loadError, setLoadError] = useState(false);
+  const [loadStatus, setLoadStatus] = useState<'loading' | 'loaded' | 'blocked'>('loading');
+  const [retryCount, setRetryCount] = useState(0);
+  const isMountedRef = useRef(true);
 
-  useEffect(() => {
+  const initDisqus = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
     try {
-      const pageUrl = url || (typeof window !== 'undefined' ? window.location.href.split('#')[0] : '');
-      const pageIdentifier = identifier;
+      const pageUrl =
+        url ||
+        (window.location.origin
+          ? `${window.location.origin}${window.location.pathname}#!${identifier}`
+          : window.location.href);
 
-      // Define disqus configuration
+      window.disqus_shortname = 'currencyexchange';
+
+      // Set global configuration callback
       window.disqus_config = function (this: any) {
         this.page.url = pageUrl;
-        this.page.identifier = pageIdentifier;
+        this.page.identifier = identifier;
         this.page.title = title;
       };
 
-      // If DISQUS already exists on window, execute reset
-      if (typeof window !== 'undefined' && window.DISQUS) {
+      // If Disqus is already loaded, reset the thread with new metadata
+      if (window.DISQUS && typeof window.DISQUS.reset === 'function') {
         try {
           window.DISQUS.reset({
             reload: true,
             config: function (this: any) {
               this.page.url = pageUrl;
-              this.page.identifier = pageIdentifier;
+              this.page.identifier = identifier;
               this.page.title = title;
             },
           });
-        } catch {
-          // Keep silent on transient resets
+          if (isMountedRef.current) {
+            setLoadStatus('loaded');
+          }
+        } catch (err) {
+          console.warn('Disqus reset notice:', err);
         }
         return;
       }
 
-      // Universal embed script injection
-      const scriptId = 'disqus-embed-script';
-      let scriptElement = document.getElementById(scriptId) as HTMLScriptElement | null;
+      // Check if script already exists in document
+      const scriptId = 'dsq-embed-scr';
+      let script = document.getElementById(scriptId) as HTMLScriptElement | null;
 
-      if (!scriptElement) {
-        const d = document;
-        const s = d.createElement('script');
-        s.id = scriptId;
-        s.src = 'https://currencyexchange.disqus.com/embed.js';
-        s.setAttribute('data-timestamp', String(+new Date()));
-        s.async = true;
-        s.onerror = () => setLoadError(true);
-        (d.head || d.body).appendChild(s);
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://currencyexchange.disqus.com/embed.js';
+        script.setAttribute('data-timestamp', String(+new Date()));
+        script.async = true;
+
+        script.onload = () => {
+          if (isMountedRef.current) {
+            setLoadStatus('loaded');
+          }
+        };
+
+        script.onerror = () => {
+          if (isMountedRef.current) {
+            setLoadStatus('blocked');
+          }
+        };
+
+        (document.head || document.body).appendChild(script);
+      } else {
+        // Script was already in DOM; wait slightly for DISQUS global to be ready
+        const timeout = setTimeout(() => {
+          if (window.DISQUS && typeof window.DISQUS.reset === 'function') {
+            try {
+              window.DISQUS.reset({
+                reload: true,
+                config: function (this: any) {
+                  this.page.url = pageUrl;
+                  this.page.identifier = identifier;
+                  this.page.title = title;
+                },
+              });
+              if (isMountedRef.current) setLoadStatus('loaded');
+            } catch (e) {
+              console.warn(e);
+            }
+          }
+        }, 300);
+
+        return () => clearTimeout(timeout);
       }
-    } catch {
-      setLoadError(true);
+    } catch (err) {
+      console.warn('Disqus embed init error:', err);
+      if (isMountedRef.current) {
+        setLoadStatus('blocked');
+      }
     }
   }, [identifier, title, url]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    initDisqus();
+
+    // Fallback timer: if still loading after 4 seconds, mark as loaded or ready
+    const timer = setTimeout(() => {
+      if (isMountedRef.current && loadStatus === 'loading') {
+        const thread = document.getElementById('disqus_thread');
+        if (thread && thread.children.length > 0) {
+          setLoadStatus('loaded');
+        }
+      }
+    }, 4000);
+
+    return () => {
+      isMountedRef.current = false;
+      clearTimeout(timer);
+    };
+  }, [initDisqus, retryCount]);
+
+  const handleManualRetry = () => {
+    setLoadStatus('loading');
+    const existing = document.getElementById('dsq-embed-scr');
+    if (existing) {
+      existing.remove();
+    }
+    setRetryCount((prev) => prev + 1);
+  };
 
   return (
     <section
@@ -94,33 +171,57 @@ export const DisqusComments: React.FC<DisqusCommentsProps> = ({
             </div>
           </div>
 
-          <a
-            href="https://currencyexchange.disqus.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition-colors w-fit"
-          >
-            <span>Open Forum</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <div className="flex items-center gap-2">
+            <button
+              id="btn-refresh-disqus"
+              onClick={handleManualRetry}
+              title="Reload comments thread"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reload Thread</span>
+            </button>
+
+            <a
+              id="btn-open-disqus-forum"
+              href="https://currencyexchange.disqus.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-xs font-medium text-blue-700 border border-blue-200 transition-colors"
+            >
+              <span>Open in Disqus</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
         </div>
 
-        {/* Official Disqus Thread Container */}
-        <div id="disqus_thread" className="w-full min-h-[220px]">
-          {loadError && (
-            <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500 space-y-2">
-              <p>Disqus comments embed is blocked or protected by your browser settings.</p>
-              <a
-                href="https://currencyexchange.disqus.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-blue-600 font-semibold hover:underline"
-              >
-                Open currencyexchange forum directly <ExternalLink className="w-3 h-3" />
-              </a>
+        {/* Notice if privacy shields or ad-blockers block third-party comment iframe */}
+        {loadStatus === 'blocked' && (
+          <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-xs text-amber-800">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold">Disqus comments embed might be blocked by browser content settings</p>
+              <p>
+                Ad-blockers, Brave Shields, or strict tracking prevention may restrict third-party comment widgets. You can click{' '}
+                <button onClick={handleManualRetry} className="underline font-semibold hover:text-amber-900">
+                  Reload Thread
+                </button>{' '}
+                or open the discussion forum directly at{' '}
+                <a
+                  href="https://currencyexchange.disqus.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-semibold hover:text-blue-700"
+                >
+                  currencyexchange.disqus.com
+                </a>.
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Official Target Container: DO NOT put React JSX children directly inside this element */}
+        <div id="disqus_thread" className="w-full min-h-[260px]"></div>
 
         <noscript>
           Please enable JavaScript to view the{' '}
