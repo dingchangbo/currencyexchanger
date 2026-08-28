@@ -49,18 +49,6 @@ function getRawApiKey(): { key: string; source: string } {
   const envCandidates: [string, string | undefined][] = [
     ['ALPHAVANTAGE_API_KEY', process.env.ALPHAVANTAGE_API_KEY],
     ['ALPHA_VANTAGE_API_KEY', process.env.ALPHA_VANTAGE_API_KEY],
-    ['VITE_ALPHAVANTAGE_API_KEY', process.env.VITE_ALPHAVANTAGE_API_KEY],
-    ['VITE_ALPHA_VANTAGE_API_KEY', process.env.VITE_ALPHA_VANTAGE_API_KEY],
-    ['ALPHAVANTAGE_KEY', process.env.ALPHAVANTAGE_KEY],
-    ['ALPHA_VANTAGE_KEY', process.env.ALPHA_VANTAGE_KEY],
-    ['VITE_ALPHAVANTAGE_KEY', process.env.VITE_ALPHAVANTAGE_KEY],
-    ['VITE_ALPHA_VANTAGE_KEY', process.env.VITE_ALPHA_VANTAGE_KEY],
-    ['ALPHAVANTAGE_TOKEN', process.env.ALPHAVANTAGE_TOKEN],
-    ['ALPHA_VANTAGE_TOKEN', process.env.ALPHA_VANTAGE_TOKEN],
-    ['API_KEY', process.env.API_KEY],
-    ['VITE_API_KEY', process.env.VITE_API_KEY],
-    ['REACT_APP_ALPHAVANTAGE_API_KEY', process.env.REACT_APP_ALPHAVANTAGE_API_KEY],
-    ['NEXT_PUBLIC_ALPHAVANTAGE_API_KEY', process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY],
   ];
 
   for (const [name, val] of envCandidates) {
