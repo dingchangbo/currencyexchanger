@@ -13,14 +13,14 @@ export async function fetchRealtimeExchangeRate(
       }`
     );
     if (!res.ok) {
-      throw new Error(`API error ${res.status}`);
+      throw new Error(`API returned HTTP ${res.status}`);
     }
     const data: RealtimeExchangeRate = await res.json();
     return data;
-  } catch (error) {
-    console.warn('Realtime rate fetch failed, using fallback calculation:', error);
+  } catch (error: any) {
+    console.warn('Realtime rate fetch failed:', error);
     const rate = calculateRate(from, to);
-    const spread = rate * 0.0003;
+    const spread = rate * 0.0004;
     return {
       from,
       to,
@@ -31,8 +31,11 @@ export async function fetchRealtimeExchangeRate(
       askPrice: rate + spread / 2,
       spread,
       lastRefreshed: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-      source: 'Alpha Vantage Gateway',
-      isLive: true,
+      source: 'Interbank Estimate (Network Error)',
+      isLive: false,
+      apiStatus: 'ERROR',
+      apiMessage: error.message || 'Failed to connect to API',
+      requestedUrl: `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=...`,
     };
   }
 }

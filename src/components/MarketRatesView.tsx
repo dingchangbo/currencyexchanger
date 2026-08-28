@@ -43,15 +43,6 @@ export const MarketRatesView: React.FC<MarketRatesViewProps> = ({
     loadRates();
   }, [loadRates]);
 
-  // Periodic polling for live real-time interbank quotes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadRates();
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, [loadRates]);
-
   // Filter pairs
   let filteredRates = rates.filter((r) => {
     const matchesSearch =

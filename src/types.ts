@@ -65,6 +65,10 @@ export interface RealtimeExchangeRate {
   source: string;
   isLive: boolean;
   cached?: boolean;
+  apiStatus?: 'ACTIVE' | 'RATE_LIMITED' | 'NOTICE' | 'ERROR';
+  apiMessage?: string;
+  requestedUrl?: string;
+  note?: string;
 }
 
 export interface TimeSeriesPoint {

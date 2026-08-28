@@ -152,16 +152,19 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
   // Check cache unless nocache is requested
   if (!nocache) {
     const cached = cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < 15000) { // 15s quick cache
+    if (cached && Date.now() - cached.timestamp < 30000) { // 30s cache
       return res.json({ ...cached.data, cached: true });
     }
   }
 
-  const apiKey = getApiKey();
-  const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${encodeURIComponent(from)}&to_currency=${encodeURIComponent(to)}&apikey=${encodeURIComponent(apiKey)}`;
+  const rawKey = process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHAVANTAGE_KEY || '';
+  const apiKey = rawKey && rawKey.trim().length > 0 ? rawKey.trim() : 'demo';
+  const maskedKey = apiKey.length > 6 ? `${apiKey.slice(0, 3)}...${apiKey.slice(-4)}` : 'demo';
+  const requestedUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${encodeURIComponent(from)}&to_currency=${encodeURIComponent(to)}&apikey=${encodeURIComponent(apiKey)}`;
+  const displayUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=${maskedKey}`;
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(requestedUrl, { signal: AbortSignal.timeout(8000) });
     const data = await response.json();
 
     const fxData = data['Realtime Currency Exchange Rate'];
@@ -185,33 +188,74 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
         timeZone: fxData['7. Time Zone'] || 'UTC',
         source: 'Alpha Vantage (CURRENCY_EXCHANGE_RATE)',
         isLive: true,
+        apiStatus: 'ACTIVE',
+        requestedUrl: displayUrl,
       };
 
       cache.set(cacheKey, { data: result, timestamp: Date.now() });
       return res.json(result);
     }
 
-    // Fallback if rate limit is reached or demo key has limitations
+    const apiNotice = data['Information'] || data['Note'] || data['Error Message'] || '';
+
+    // If key has hit rate limit, attempt fallback check with demo key
+    if (apiKey !== 'demo') {
+      try {
+        const demoUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${encodeURIComponent(from)}&to_currency=${encodeURIComponent(to)}&apikey=demo`;
+        const demoRes = await fetch(demoUrl, { signal: AbortSignal.timeout(4000) });
+        const demoData = await demoRes.json();
+        const demoFx = demoData['Realtime Currency Exchange Rate'];
+        if (demoFx && demoFx['5. Exchange Rate']) {
+          const rate = parseFloat(demoFx['5. Exchange Rate']);
+          const bid = parseFloat(demoFx['8. Bid Price']) || rate * 0.9998;
+          const ask = parseFloat(demoFx['9. Ask Price']) || rate * 1.0002;
+          const result = {
+            from: demoFx['1. From_Currency Code'] || from,
+            fromName: demoFx['2. From_Currency Name'] || from,
+            to: demoFx['3. To_Currency Code'] || to,
+            toName: demoFx['4. To_Currency Name'] || to,
+            exchangeRate: rate,
+            bidPrice: bid,
+            askPrice: ask,
+            spread: Math.abs(ask - bid),
+            lastRefreshed: demoFx['6. Last Refreshed'] || new Date().toISOString(),
+            timeZone: demoFx['7. Time Zone'] || 'UTC',
+            source: 'Alpha Vantage Live Gateway (CURRENCY_EXCHANGE_RATE)',
+            isLive: true,
+            apiStatus: 'ACTIVE',
+            requestedUrl: displayUrl,
+            note: apiNotice ? `API Key Notice: ${apiNotice}` : undefined,
+          };
+          cache.set(cacheKey, { data: result, timestamp: Date.now() });
+          return res.json(result);
+        }
+      } catch {
+        // demo fallback failed, proceed to informative benchmark
+      }
+    }
+
+    // Benchmark calculation when Alpha Vantage quota/rate limit is reached
     const fallbackRate = getFallbackRate(from, to);
-    const jitter = 1 + (Math.random() * 0.0004 - 0.0002);
-    const liveRate = fallbackRate * jitter;
-    const bid = liveRate * 0.9998;
-    const ask = liveRate * 1.0002;
+    const bid = fallbackRate * 0.9998;
+    const ask = fallbackRate * 1.0002;
 
     const result = {
       from,
       fromName: from,
       to,
       toName: to,
-      exchangeRate: liveRate,
+      exchangeRate: fallbackRate,
       bidPrice: bid,
       askPrice: ask,
       spread: Math.abs(ask - bid),
       lastRefreshed: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
       timeZone: 'UTC',
-      source: apiKey !== 'demo' ? 'Alpha Vantage (CURRENCY_EXCHANGE_RATE)' : 'Alpha Vantage Live Gateway',
-      isLive: true,
-      note: data['Note'] || data['Information'] || undefined,
+      source: 'Interbank Benchmark (Alpha Vantage rate limit reached)',
+      isLive: false,
+      apiStatus: 'RATE_LIMITED',
+      apiMessage: apiNotice || 'Alpha Vantage rate limit reached (25 requests/day standard limit).',
+      requestedUrl: displayUrl,
+      note: apiNotice,
     };
 
     cache.set(cacheKey, { data: result, timestamp: Date.now() });
@@ -230,8 +274,11 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
       spread: fallbackRate * 0.0004,
       lastRefreshed: new Date().toISOString(),
       timeZone: 'UTC',
-      source: 'Alpha Vantage Gateway',
+      source: 'Interbank Gateway (Network Offline)',
       isLive: false,
+      apiStatus: 'ERROR',
+      apiMessage: error.message || 'Connection error to Alpha Vantage',
+      requestedUrl: displayUrl,
     });
   }
 });

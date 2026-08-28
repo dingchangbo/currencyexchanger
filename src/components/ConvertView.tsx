@@ -41,37 +41,22 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
   const receiveAmount = payAmount * currentRate;
 
   // Load Real-time Rate from Alpha Vantage API
-  const loadLiveRate = useCallback(async (base: string, quote: string) => {
+  const loadLiveRate = useCallback(async (base: string, quote: string, force: boolean = false) => {
     setIsLoadingRate(true);
     try {
-      const data = await fetchRealtimeExchangeRate(base, quote);
+      const data = await fetchRealtimeExchangeRate(base, quote, force);
       setRateData(data);
     } catch (err) {
       console.error('Failed to load real-time rate:', err);
     } finally {
       setIsLoadingRate(false);
-      setSecondsRemaining(45);
+      setSecondsRemaining(60);
     }
   }, []);
 
   // Fetch when currencies change
   useEffect(() => {
-    loadLiveRate(fromCurrency, toCurrency);
-  }, [fromCurrency, toCurrency, loadLiveRate]);
-
-  // Rate active countdown & auto-refresh
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          loadLiveRate(fromCurrency, toCurrency);
-          return 45;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
+    loadLiveRate(fromCurrency, toCurrency, false);
   }, [fromCurrency, toCurrency, loadLiveRate]);
 
   const handlePayAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -304,13 +289,38 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
                 <Radio className="w-3 h-3 text-emerald-600 animate-pulse" />
                 <span>Alpha Vantage Exchange Rate Details</span>
               </span>
-              <span className="text-[11px] font-mono text-slate-500">
-                {rateData.from} → {rateData.to}
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    rateData.isLive ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {rateData.isLive ? 'Live API Feed' : 'Rate Limited / Benchmark'}
+                </span>
+                <span className="text-[11px] font-mono text-slate-500">
+                  {rateData.from} → {rateData.to}
+                </span>
+              </div>
             </div>
+
+            {/* Requested API Endpoint URL */}
+            {rateData.requestedUrl && (
+              <div className="text-[11px] font-mono bg-white p-2 rounded-lg border border-slate-200 text-slate-600 truncate">
+                <span className="text-slate-400 font-sans font-bold mr-1 text-[10px] uppercase">API Endpoint:</span>
+                {rateData.requestedUrl}
+              </div>
+            )}
+
+            {/* If rate limited or note from Alpha Vantage */}
+            {rateData.apiMessage && (
+              <div className="text-[11px] bg-amber-50 border border-amber-200 text-amber-800 p-2 rounded-lg">
+                <span className="font-bold">Alpha Vantage Notice:</span> {rateData.apiMessage}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60 font-mono">
               <div className="bg-white p-2 rounded-lg border border-slate-200/60">
-                <span className="block text-[10px] uppercase font-sans text-slate-400">Rate</span>
+                <span className="block text-[10px] uppercase font-sans text-slate-400">Exchange Rate</span>
                 <span className="font-bold text-slate-900">{rateData.exchangeRate.toFixed(rateDecimals)}</span>
               </div>
               <div className="bg-white p-2 rounded-lg border border-slate-200/60">
@@ -325,6 +335,18 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
                 <span className="block text-[10px] uppercase font-sans text-slate-400">Spread</span>
                 <span className="font-bold text-slate-900">{rateData.spread.toFixed(rateDecimals)}</span>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+              <span>Timestamp: {rateData.lastRefreshed}</span>
+              <button
+                type="button"
+                onClick={() => loadLiveRate(fromCurrency, toCurrency, true)}
+                className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer flex items-center gap-1"
+              >
+                <RefreshCw className={`w-3 h-3 ${isLoadingRate ? 'animate-spin' : ''}`} />
+                Force Trigger Live API Call
+              </button>
             </div>
           </div>
         )}

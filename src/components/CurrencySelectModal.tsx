@@ -148,7 +148,6 @@ export const CurrencySelectModal: React.FC<CurrencySelectModalProps> = ({
               return (
                 <button
                   key={currency.code}
-                  onMouseEnter={() => handlePreviewRate(currency.code)}
                   onClick={() => {
                     onSelect(currency.code);
                     onClose();
