@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowUpDown, Info, Globe, Shield, Zap, ChevronDown, RefreshCw, BarChart2, Radio, Copy, Check, AlertCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { CURRENCIES, calculateRate } from '../data/currencies';
 import { CurrencySelectModal } from './CurrencySelectModal';
+import { ApiKeyStatusSection } from './ApiKeyStatusSection';
 import { fetchRealtimeExchangeRate } from '../services/ratesService';
 import { RealtimeExchangeRate } from '../types';
 
@@ -480,6 +481,9 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
             <span>Sub-Second Quote Processing</span>
           </div>
         </div>
+
+        {/* Dedicated Environment Variable: ALPHAVANTAGE_API_KEY Printout Section */}
+        <ApiKeyStatusSection onRefreshRate={() => loadLiveRate(fromCurrency, toCurrency, true)} />
       </div>
 
       {/* Currency Select Modal */}
