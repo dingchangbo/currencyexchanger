@@ -10,7 +10,6 @@ import { ConvertView } from './components/ConvertView';
 import { MarketRatesView } from './components/MarketRatesView';
 import { FavoritePairsView } from './components/FavoritePairsView';
 import { LegalDocModal } from './components/LegalDocModal';
-import { DisqusComments } from './components/DisqusComments';
 import { ActiveTab } from './types';
 
 export default function App() {
@@ -89,12 +88,6 @@ export default function App() {
             userBalance={userBalance}
           />
         )}
-
-        {/* Disqus Community Discussion Thread */}
-        <DisqusComments
-          identifier={`currency-exchanger-${activeTab}`}
-          title={`Currency Exchanger - ${activeTab === 'convert' ? 'Converter' : activeTab === 'market_rates' ? 'Market Rates' : 'Favorite Pairs'} Discussion`}
-        />
       </div>
 
       {/* Global Footer */}
