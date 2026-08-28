@@ -50,20 +50,96 @@ function getApiKey(): string {
   return key && key.trim().length > 0 ? key.trim() : 'demo';
 }
 
-// Health Check Endpoint
-app.get('/api/health', (req, res) => {
-  const hasApiKey = Boolean(
-    (process.env.ALPHAVANTAGE_API_KEY && process.env.ALPHAVANTAGE_API_KEY.trim().length > 0) ||
-    (process.env.ALPHAVANTAGE_KEY && process.env.ALPHAVANTAGE_KEY.trim().length > 0)
-  );
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    service: 'GlobalFX Backend API',
-    alphavantageKeyConfigured: hasApiKey,
-    environment: process.env.NODE_ENV || 'development',
-  });
+// Health Check Endpoint (Tests server status and real-time Alpha Vantage API connectivity)
+app.get('/api/health', async (req, res) => {
+  const rawKey = process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHAVANTAGE_KEY || '';
+  const hasApiKey = Boolean(rawKey && rawKey.trim().length > 0);
+  const apiKey = hasApiKey ? rawKey.trim() : 'demo';
+  const maskedKey = hasApiKey
+    ? `${apiKey.slice(0, 3)}...${apiKey.slice(-4)} (${apiKey.length} chars)`
+    : 'Not configured (using demo fallback)';
+
+  // Test real-time connection to Alpha Vantage for USD -> SGD
+  const startTime = Date.now();
+  let liveApiWorking = false;
+  let liveApiMessage = '';
+  let liveTestSample: any = null;
+
+  try {
+    const testUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=USD&to_currency=SGD&apikey=${encodeURIComponent(apiKey)}`;
+    const testResponse = await fetch(testUrl, { signal: AbortSignal.timeout(5000) });
+    const latencyMs = Date.now() - startTime;
+
+    if (!testResponse.ok) {
+      liveApiWorking = false;
+      liveApiMessage = `HTTP error ${testResponse.status}: ${testResponse.statusText}`;
+    } else {
+      const data = await testResponse.json();
+      if (data['Realtime Currency Exchange Rate']) {
+        liveApiWorking = true;
+        const fxData = data['Realtime Currency Exchange Rate'];
+        liveApiMessage = 'Real-time API is working successfully.';
+        liveTestSample = {
+          from: fxData['1. From_Currency Code'],
+          to: fxData['3. To_Currency Code'],
+          exchangeRate: parseFloat(fxData['5. Exchange Rate']),
+          bidPrice: parseFloat(fxData['8. Bid Price'] || '0'),
+          askPrice: parseFloat(fxData['9. Ask Price'] || '0'),
+          lastRefreshed: fxData['6. Last Refreshed'],
+          timeZone: fxData['7. Time Zone'],
+        };
+      } else if (data['Note']) {
+        liveApiWorking = false;
+        liveApiMessage = `Alpha Vantage Rate Limit: ${data['Note']}`;
+      } else if (data['Information']) {
+        liveApiWorking = false;
+        liveApiMessage = `Alpha Vantage Notice: ${data['Information']}`;
+      } else if (data['Error Message']) {
+        liveApiWorking = false;
+        liveApiMessage = `Alpha Vantage Error: ${data['Error Message']}`;
+      } else {
+        liveApiWorking = false;
+        liveApiMessage = 'Unexpected response structure from Alpha Vantage.';
+      }
+    }
+
+    res.json({
+      status: 'ok',
+      backendServer: 'online',
+      uptimeSeconds: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
+      apiKeyConfigured: hasApiKey,
+      apiKeyMasked: maskedKey,
+      realtimeApi: {
+        working: liveApiWorking,
+        status: liveApiWorking ? 'CONNECTED_AND_ACTIVE' : 'DEGRADED_OR_RATE_LIMITED',
+        message: liveApiMessage,
+        latencyMs,
+        testPair: 'USD/SGD',
+        sampleRateData: liveTestSample,
+      },
+      environment: process.env.NODE_ENV || 'development',
+    });
+  } catch (err: any) {
+    const latencyMs = Date.now() - startTime;
+    res.json({
+      status: 'ok',
+      backendServer: 'online',
+      uptimeSeconds: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
+      apiKeyConfigured: hasApiKey,
+      apiKeyMasked: maskedKey,
+      realtimeApi: {
+        working: false,
+        status: 'CONNECTION_FAILED',
+        message: err.message || 'Failed to reach Alpha Vantage endpoint',
+        latencyMs,
+        testPair: 'USD/SGD',
+        sampleRateData: null,
+      },
+      environment: process.env.NODE_ENV || 'development',
+    });
+  }
 });
 
 // 1. Real-time Exchange Rate Endpoint (Alpha Vantage CURRENCY_EXCHANGE_RATE)
