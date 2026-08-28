@@ -284,57 +284,6 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
           </div>
         </div>
 
-        {/* Alpha Vantage Exchange Details Card */}
-        {rateData && (
-          <div className="mt-4 rounded-xl p-3.5 text-xs space-y-2 border transition-all bg-slate-50 border-slate-200/80 text-slate-600">
-            <div className="flex items-center justify-between font-semibold">
-              <span className="flex items-center gap-1.5">
-                <Radio className="w-3 h-3 text-emerald-600 animate-pulse shrink-0" />
-                <span className="text-slate-700">Alpha Vantage Exchange Rate Details</span>
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  Live Feed
-                </span>
-                <span className="text-[11px] font-mono text-slate-500">
-                  {rateData.from} → {rateData.to}
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60 font-mono">
-              <div className="bg-white p-2 rounded-lg border border-slate-200/60">
-                <span className="block text-[10px] uppercase font-sans text-slate-400">Exchange Rate</span>
-                <span className="font-bold text-slate-900">{rateData.exchangeRate.toFixed(rateDecimals)}</span>
-              </div>
-              <div className="bg-white p-2 rounded-lg border border-slate-200/60">
-                <span className="block text-[10px] uppercase font-sans text-slate-400">Bid Price</span>
-                <span className="font-bold text-slate-900">{rateData.bidPrice.toFixed(rateDecimals)}</span>
-              </div>
-              <div className="bg-white p-2 rounded-lg border border-slate-200/60">
-                <span className="block text-[10px] uppercase font-sans text-slate-400">Ask Price</span>
-                <span className="font-bold text-slate-900">{rateData.askPrice.toFixed(rateDecimals)}</span>
-              </div>
-              <div className="bg-white p-2 rounded-lg border border-slate-200/60">
-                <span className="block text-[10px] uppercase font-sans text-slate-400">Spread</span>
-                <span className="font-bold text-slate-900">{rateData.spread.toFixed(rateDecimals)}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-              <span>Timestamp: {rateData.lastRefreshed}</span>
-              <button
-                type="button"
-                onClick={() => loadLiveRate(fromCurrency, toCurrency, true)}
-                className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer flex items-center gap-1"
-              >
-                <RefreshCw className={`w-3 h-3 ${isLoadingRate ? 'animate-spin' : ''}`} />
-                Force Trigger Live API Call
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Quick Common Pairs */}
         <div className="mt-4 flex items-center justify-center flex-wrap gap-2">
           <span className="text-xs font-semibold text-slate-400 mr-1">Popular Pairs:</span>
