@@ -58,11 +58,17 @@ export const DisqusComments: React.FC<DisqusCommentsProps> = ({
     const scriptId = 'disqus-embed-script';
     let scriptElement = document.getElementById(scriptId) as HTMLScriptElement | null;
 
+    // If an older embed script exists with a different domain, remove it
+    if (scriptElement && !scriptElement.src.includes('currencyexchange.disqus.com')) {
+      scriptElement.remove();
+      scriptElement = null;
+    }
+
     if (!scriptElement) {
       const d = document;
       const s = d.createElement('script');
       s.id = scriptId;
-      s.src = 'https://test-8izaxa5kmz.disqus.com/embed.js';
+      s.src = 'https://currencyexchange.disqus.com/embed.js';
       s.setAttribute('data-timestamp', String(+new Date()));
       s.async = true;
       (d.head || d.body).appendChild(s);
@@ -87,7 +93,7 @@ export const DisqusComments: React.FC<DisqusCommentsProps> = ({
         }
       } else {
         const s = document.createElement('script');
-        s.src = 'https://test-8izaxa5kmz.disqus.com/embed.js';
+        s.src = 'https://currencyexchange.disqus.com/embed.js';
         s.setAttribute('data-timestamp', String(+new Date()));
         (document.head || document.body).appendChild(s);
       }
@@ -133,7 +139,7 @@ export const DisqusComments: React.FC<DisqusCommentsProps> = ({
             </button>
 
             <a
-              href="https://test-8izaxa5kmz.disqus.com"
+              href="https://currencyexchange.disqus.com"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0a2540] hover:bg-slate-800 text-xs font-medium text-white transition-colors cursor-pointer"
