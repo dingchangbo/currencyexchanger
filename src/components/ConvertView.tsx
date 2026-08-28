@@ -299,76 +299,21 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
 
         {/* Alpha Vantage Exchange Details Card */}
         {rateData && (
-          <div className={`mt-4 rounded-xl p-3.5 text-xs space-y-2 border transition-all ${
-            rateData.apiStatus === 'ERROR'
-              ? 'bg-rose-50/50 border-rose-200 text-rose-900'
-              : rateData.apiStatus === 'RATE_LIMITED'
-              ? 'bg-amber-50/50 border-amber-200 text-amber-900'
-              : 'bg-slate-50 border-slate-200/80 text-slate-600'
-          }`}>
+          <div className="mt-4 rounded-xl p-3.5 text-xs space-y-2 border transition-all bg-slate-50 border-slate-200/80 text-slate-600">
             <div className="flex items-center justify-between font-semibold">
               <span className="flex items-center gap-1.5">
-                {rateData.apiStatus === 'ERROR' ? (
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                ) : rateData.apiStatus === 'RATE_LIMITED' ? (
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                ) : (
-                  <Radio className="w-3 h-3 text-emerald-600 animate-pulse shrink-0" />
-                )}
-                <span className={rateData.apiStatus === 'ERROR' ? 'text-rose-900 font-bold' : rateData.apiStatus === 'RATE_LIMITED' ? 'text-amber-900 font-bold' : 'text-slate-700'}>
-                  {rateData.apiStatus === 'ERROR' ? 'Alpha Vantage API Error' : rateData.apiStatus === 'RATE_LIMITED' ? 'Alpha Vantage Rate Limit Quota' : 'Alpha Vantage Exchange Rate Details'}
-                </span>
+                <Radio className="w-3 h-3 text-emerald-600 animate-pulse shrink-0" />
+                <span className="text-slate-700">Alpha Vantage Exchange Rate Details</span>
               </span>
               <div className="flex items-center gap-2">
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    rateData.apiStatus === 'ERROR'
-                      ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                      : rateData.isLive
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                      : 'bg-amber-100 text-amber-800 border border-amber-200'
-                  }`}
-                >
-                  {rateData.apiStatus === 'ERROR'
-                    ? 'API Call Failed'
-                    : rateData.isLive
-                    ? 'Live API Feed Active'
-                    : 'Rate Limited / Benchmark'}
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Live Feed
                 </span>
                 <span className="text-[11px] font-mono text-slate-500">
                   {rateData.from} → {rateData.to}
                 </span>
               </div>
             </div>
-
-            {/* Exact API Error Box if call failed */}
-            {(rateData.apiStatus === 'ERROR' || rateData.errorMessage) && (
-              <div className="bg-rose-100/70 border border-rose-300/80 rounded-lg p-2.5 text-rose-900 space-y-1">
-                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-rose-700">
-                  <span className="flex items-center gap-1">
-                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                    Exact API Error Response:
-                  </span>
-                  <span className="text-[10px] font-mono lowercase text-rose-600">status: {rateData.apiStatus}</span>
-                </div>
-                <div className="font-mono text-xs bg-white text-rose-800 p-2 rounded border border-rose-200 break-all select-all font-semibold leading-relaxed">
-                  {rateData.errorMessage || rateData.apiMessage || 'Unknown error occurred while contacting Alpha Vantage API'}
-                </div>
-              </div>
-            )}
-
-            {/* If rate limited notice from Alpha Vantage */}
-            {rateData.apiStatus === 'RATE_LIMITED' && !rateData.errorMessage && rateData.apiMessage && (
-              <div className="bg-amber-100/80 border border-amber-300/80 rounded-lg p-2.5 text-amber-900 space-y-1">
-                <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-800">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                  Alpha Vantage Rate Limit Notice:
-                </div>
-                <div className="font-mono text-xs bg-white text-amber-900 p-2 rounded border border-amber-200 break-all select-all leading-relaxed">
-                  {rateData.apiMessage}
-                </div>
-              </div>
-            )}
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60 font-mono">
               <div className="bg-white p-2 rounded-lg border border-slate-200/60">

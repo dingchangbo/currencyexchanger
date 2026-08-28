@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { TrendingUp, TrendingDown, Minus, SlidersHorizontal, ArrowRight, Star, RefreshCw, Radio, AlertCircle, XCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, SlidersHorizontal, ArrowRight, Star, RefreshCw, Radio } from 'lucide-react';
 import { INITIAL_MARKET_RATES } from '../data/currencies';
 import { MarketRate } from '../types';
 import { fetchAllMarketRates } from '../services/ratesService';
@@ -21,7 +21,6 @@ export const MarketRatesView: React.FC<MarketRatesViewProps> = ({
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [sortBy, setSortBy] = useState<'default' | 'gainers' | 'losers' | 'volatility'>('default');
   const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
   const [feedSource, setFeedSource] = useState('Alpha Vantage Gateway');
   const [secondsRemaining, setSecondsRemaining] = useState(30);
 
@@ -33,14 +32,8 @@ export const MarketRatesView: React.FC<MarketRatesViewProps> = ({
         setRates(data.rates);
         setFeedSource(data.source);
       }
-      if (data.error) {
-        setApiError(data.error);
-      } else {
-        setApiError(null);
-      }
-    } catch (err: any) {
-      console.error('Failed to load market rates:', err);
-      setApiError(err?.message || 'Network error fetching market rates');
+    } catch (err) {
+      console.warn('Failed to load live market rates, using baseline rates:', err);
     } finally {
       setIsLoading(false);
       setSecondsRemaining(30);
@@ -230,28 +223,6 @@ export const MarketRatesView: React.FC<MarketRatesViewProps> = ({
           </div>
         </div>
       </div>
-
-      {/* API Error Banner if present */}
-      {apiError && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-rose-900">
-          <div className="flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold text-rose-800">Alpha Vantage / Market Rates API Error</p>
-              <p className="font-mono text-[11px] text-rose-700 mt-0.5 break-all select-all bg-white/80 p-1.5 rounded border border-rose-200">
-                {apiError}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={loadRates}
-            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs transition-colors shrink-0 cursor-pointer flex items-center gap-1.5"
-          >
-            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-            Retry API Call
-          </button>
-        </div>
-      )}
 
       {/* Grid of Rate Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

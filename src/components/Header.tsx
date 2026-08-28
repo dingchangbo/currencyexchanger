@@ -249,12 +249,6 @@ export const Header: React.FC<HeaderProps> = ({
                         </div>
                       </div>
 
-                      {liveSearchResult.apiMessage && (
-                        <div className="mt-1 text-[11px] text-amber-700 bg-amber-50 p-1.5 rounded border border-amber-200">
-                          {liveSearchResult.apiMessage}
-                        </div>
-                      )}
-
                       <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                         <span>Refreshed: {liveSearchResult.lastRefreshed}</span>
                         <span className="flex items-center gap-1 font-semibold text-blue-600">
@@ -264,14 +258,8 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </div>
                 ) : searchError ? (
-                  <div className="p-3 bg-rose-50/60 border-t border-rose-100 text-xs">
-                    <div className="flex items-start gap-2 text-rose-700 font-semibold mb-1">
-                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                      <span>API Call Error</span>
-                    </div>
-                    <p className="text-rose-600 font-mono text-[11px] bg-white p-2 rounded border border-rose-200 break-all select-all">
-                      {searchError}
-                    </p>
+                  <div className="p-3 text-center text-xs text-slate-500">
+                    Unable to retrieve quote for this currency pair. Please verify the 3-letter currency codes (e.g. USD/EUR).
                   </div>
                 ) : (
                   <div className="p-3 text-center text-xs text-slate-400">
