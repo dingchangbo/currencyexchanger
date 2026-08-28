@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowUpDown, Info, Globe, Shield, Zap, ChevronDown, RefreshCw, BarChart2, Radio, Copy, Check, AlertCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { ArrowUpDown, Info, Globe, Shield, Zap, ChevronDown, RefreshCw, BarChart2, Radio, AlertCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { CURRENCIES, calculateRate } from '../data/currencies';
 import { CurrencySelectModal } from './CurrencySelectModal';
-import { ApiKeyStatusSection } from './ApiKeyStatusSection';
 import { fetchRealtimeExchangeRate } from '../services/ratesService';
 import { RealtimeExchangeRate } from '../types';
 
@@ -21,7 +20,6 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
 }) => {
   const [fromCurrency, setFromCurrency] = useState(initialFromCurrency);
   const [toCurrency, setToCurrency] = useState(initialToCurrency);
-  const [copiedUrl, setCopiedUrl] = useState(false);
   const [payAmountStr, setPayAmountStr] = useState(
     initialAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   );
@@ -372,43 +370,6 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
               </div>
             )}
 
-            {/* Requested API Endpoint URL */}
-            {rateData.requestedUrl && (
-              <div className="text-[11px] font-mono bg-white p-2.5 rounded-lg border border-slate-200 text-slate-700">
-                <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-slate-100">
-                  <span className="text-slate-500 font-sans font-bold text-[10px] uppercase tracking-wider">
-                    Full Alpha Vantage API Endpoint:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (rateData.requestedUrl) {
-                        navigator.clipboard.writeText(rateData.requestedUrl);
-                        setCopiedUrl(true);
-                        setTimeout(() => setCopiedUrl(false), 2000);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 text-[10px] font-sans font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                  >
-                    {copiedUrl ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-600" />
-                        <span className="text-emerald-600">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" />
-                        <span>Copy URL</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="break-all font-mono leading-relaxed text-slate-800 select-all bg-slate-50 p-2 rounded border border-slate-100 text-[11px]">
-                  {rateData.requestedUrl}
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60 font-mono">
               <div className="bg-white p-2 rounded-lg border border-slate-200/60">
                 <span className="block text-[10px] uppercase font-sans text-slate-400">Exchange Rate</span>
@@ -481,9 +442,6 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
             <span>Sub-Second Quote Processing</span>
           </div>
         </div>
-
-        {/* Dedicated Environment Variable: ALPHAVANTAGE_API_KEY Printout Section */}
-        <ApiKeyStatusSection onRefreshRate={() => loadLiveRate(fromCurrency, toCurrency, true)} />
       </div>
 
       {/* Currency Select Modal */}

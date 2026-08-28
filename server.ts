@@ -159,37 +159,6 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Dedicated Environment Variable Printout Endpoint
-app.get('/api/env-status', (req, res) => {
-  const { key: rawKey, source } = getRawApiKey();
-  const rawEnvVal = process.env.ALPHAVANTAGE_API_KEY;
-  const isPresent = Boolean(rawEnvVal && rawEnvVal.trim().length > 0);
-  const keyToUse = isPresent ? rawEnvVal.trim().replace(/^["']|["']$/g, '') : rawKey;
-  const isMasked = req.query.reveal !== 'true';
-
-  const maskedValue = keyToUse.length > 6
-    ? `${keyToUse.slice(0, 3)}...${keyToUse.slice(-4)}`
-    : keyToUse.length > 0
-    ? '***'
-    : '(not set)';
-
-  res.json({
-    variableName: 'ALPHAVANTAGE_API_KEY',
-    isConfigured: Boolean(keyToUse && keyToUse.length > 0),
-    resolvedValue: isMasked ? maskedValue : keyToUse,
-    maskedValue,
-    fullValue: keyToUse,
-    keyLength: keyToUse.length,
-    resolvedSource: isPresent ? 'process.env.ALPHAVANTAGE_API_KEY' : (source !== 'none' ? `process.env.${source}` : 'fallback (demo)'),
-    runtime: {
-      platform: process.env.VERCEL ? 'Vercel Serverless' : 'Node.js / Cloud Run',
-      nodeEnv: process.env.NODE_ENV || 'development',
-      serverTime: new Date().toISOString(),
-    },
-    sampleCurl: `curl "https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=USD&to_currency=SGD&apikey=${keyToUse || 'demo'}"`
-  });
-});
-
 // 1. Real-time Exchange Rate Endpoint (Alpha Vantage CURRENCY_EXCHANGE_RATE)
 app.get('/api/rates/exchange-rate', async (req, res) => {
   const from = ((req.query.from as string) || 'USD').toUpperCase().trim();

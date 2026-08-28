@@ -249,13 +249,6 @@ export const Header: React.FC<HeaderProps> = ({
                         </div>
                       </div>
 
-                      {liveSearchResult.requestedUrl && (
-                        <div className="mt-2 text-[10px] font-mono text-slate-600 bg-slate-100 p-2 rounded border border-slate-200 break-all select-all">
-                          <span className="font-sans font-bold text-slate-500 uppercase mr-1">API URL:</span>
-                          {liveSearchResult.requestedUrl}
-                        </div>
-                      )}
-
                       {liveSearchResult.apiMessage && (
                         <div className="mt-1 text-[11px] text-amber-700 bg-amber-50 p-1.5 rounded border border-amber-200">
                           {liveSearchResult.apiMessage}
