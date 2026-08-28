@@ -26,13 +26,13 @@ export default function App() {
   }>({
     base: 'USD',
     quote: 'EUR',
-    amount: 100000,
+    amount: 100,
   });
 
   const [activeLegalDoc, setActiveLegalDoc] = useState<string | null>(null);
 
   // Quick preset from Market Rates or Favorites
-  const handleSelectPairForConvert = (base: string, quote: string, amount: number = 50000) => {
+  const handleSelectPairForConvert = (base: string, quote: string, amount: number = 100) => {
     setConvertPresets({
       base,
       quote,
@@ -54,7 +54,7 @@ export default function App() {
         onTabChange={handleTabChange}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onSelectPair={(from, to) => handleSelectPairForConvert(from, to, 100000)}
+        onSelectPair={(from, to) => handleSelectPairForConvert(from, to, 100)}
       />
 
       {/* Main Content Area */}
@@ -66,7 +66,7 @@ export default function App() {
             userBalance={userBalance}
             initialFromCurrency={convertPresets.base}
             initialToCurrency={convertPresets.quote}
-            initialAmount={convertPresets.amount || 100000}
+            initialAmount={convertPresets.amount || 100}
           />
         )}
 
