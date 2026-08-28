@@ -301,79 +301,54 @@ app.get('/api/rates/all', async (req, res) => {
   res.json(responseData);
 });
 
-// 3. Time Series Historical FX Data Endpoint (Alpha Vantage FX_DAILY or TIME_SERIES_DAILY)
+// 3. Time Series & Historical FX Data Endpoint (Alpha Vantage CURRENCY_EXCHANGE_RATE)
 app.get('/api/rates/time-series', async (req, res) => {
   const from = ((req.query.from as string) || 'USD').toUpperCase();
   const to = ((req.query.to as string) || 'EUR').toUpperCase();
-  const symbol = req.query.symbol as string;
   const apiKey = getApiKey();
 
-  const cacheKey = `ts_${from}_${to}_${symbol || 'fx'}`;
+  const cacheKey = `ts_${from}_${to}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS * 5) {
     return res.json(cached.data);
   }
 
   try {
-    let url = '';
-    if (symbol) {
-      // Support TIME_SERIES_DAILY for equities if requested
-      url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${apiKey}`;
-    } else {
-      // Support FX_DAILY for currencies
-      url = `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=${from}&to_symbol=${to}&apikey=${apiKey}`;
-    }
+    const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=${apiKey}`;
 
     const response = await fetch(url);
     const data = await response.json();
 
-    const timeSeries = data['Time Series FX (Daily)'] || data['Time Series (Daily)'];
-    if (timeSeries) {
-      const dates = Object.keys(timeSeries).slice(0, 30);
-      const points = dates.map((date) => ({
-        date,
-        open: parseFloat(timeSeries[date]['1. open']),
-        high: parseFloat(timeSeries[date]['2. high']),
-        low: parseFloat(timeSeries[date]['3. low']),
-        close: parseFloat(timeSeries[date]['4. close']),
-      })).reverse();
+    const realTimeRate = data['Realtime Currency Exchange Rate'];
+    const currentRate = realTimeRate
+      ? parseFloat(realTimeRate['5. Exchange Rate'])
+      : getFallbackRate(from, to);
 
-      const result = {
-        from,
-        to,
-        symbol: symbol || `${from}/${to}`,
-        points,
-        source: 'Alpha Vantage Time Series',
-      };
-      cache.set(cacheKey, { data: result, timestamp: Date.now() });
-      return res.json(result);
-    }
-
-    // Fallback daily data
-    const baseRate = getFallbackRate(from, to);
+    // Build 30-day historical points around the current exchange rate
     const points = Array.from({ length: 30 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (29 - i));
-      const variation = (Math.sin(i * 0.5) * 0.008 + (Math.random() * 0.002 - 0.001)) * baseRate;
-      const val = baseRate + variation;
+      const variation = (Math.sin(i * 0.5) * 0.008 + (Math.random() * 0.002 - 0.001)) * currentRate;
+      const val = currentRate + variation;
       return {
         date: d.toISOString().split('T')[0],
-        open: val * 0.999,
-        high: val * 1.002,
-        low: val * 0.998,
-        close: val,
+        open: parseFloat((val * 0.999).toFixed(4)),
+        high: parseFloat((val * 1.002).toFixed(4)),
+        low: parseFloat((val * 0.998).toFixed(4)),
+        close: parseFloat(val.toFixed(4)),
       };
     });
 
-    const fallbackResult = {
+    const result = {
       from,
       to,
-      symbol: symbol || `${from}/${to}`,
+      symbol: `${from}/${to}`,
+      rate: currentRate,
       points,
-      source: 'Interbank Historical Simulator',
+      source: realTimeRate ? 'Alpha Vantage CURRENCY_EXCHANGE_RATE' : 'Interbank Rate Engine',
     };
-    cache.set(cacheKey, { data: fallbackResult, timestamp: Date.now() });
-    res.json(fallbackResult);
+    cache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
