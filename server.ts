@@ -45,18 +45,47 @@ function getFallbackRate(from: string, to: string): number {
   return fromToUsd * toRate;
 }
 
+function getRawApiKey(): { key: string; source: string } {
+  const envCandidates: [string, string | undefined][] = [
+    ['ALPHAVANTAGE_API_KEY', process.env.ALPHAVANTAGE_API_KEY],
+    ['ALPHA_VANTAGE_API_KEY', process.env.ALPHA_VANTAGE_API_KEY],
+    ['VITE_ALPHAVANTAGE_API_KEY', process.env.VITE_ALPHAVANTAGE_API_KEY],
+    ['VITE_ALPHA_VANTAGE_API_KEY', process.env.VITE_ALPHA_VANTAGE_API_KEY],
+    ['ALPHAVANTAGE_KEY', process.env.ALPHAVANTAGE_KEY],
+    ['ALPHA_VANTAGE_KEY', process.env.ALPHA_VANTAGE_KEY],
+    ['VITE_ALPHAVANTAGE_KEY', process.env.VITE_ALPHAVANTAGE_KEY],
+    ['VITE_ALPHA_VANTAGE_KEY', process.env.VITE_ALPHA_VANTAGE_KEY],
+    ['ALPHAVANTAGE_TOKEN', process.env.ALPHAVANTAGE_TOKEN],
+    ['ALPHA_VANTAGE_TOKEN', process.env.ALPHA_VANTAGE_TOKEN],
+    ['API_KEY', process.env.API_KEY],
+    ['VITE_API_KEY', process.env.VITE_API_KEY],
+    ['REACT_APP_ALPHAVANTAGE_API_KEY', process.env.REACT_APP_ALPHAVANTAGE_API_KEY],
+    ['NEXT_PUBLIC_ALPHAVANTAGE_API_KEY', process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY],
+  ];
+
+  for (const [name, val] of envCandidates) {
+    if (val && typeof val === 'string') {
+      const trimmed = val.trim().replace(/^["']|["']$/g, '');
+      if (trimmed.length > 0) {
+        return { key: trimmed, source: name };
+      }
+    }
+  }
+  return { key: '', source: 'none' };
+}
+
 function getApiKey(): string {
-  const key = process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHAVANTAGE_KEY;
-  return key && key.trim().length > 0 ? key.trim() : 'demo';
+  const { key } = getRawApiKey();
+  return key.length > 0 ? key : 'demo';
 }
 
 // Health Check Endpoint (Tests server status and real-time Alpha Vantage API connectivity)
 app.get('/api/health', async (req, res) => {
-  const rawKey = process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHAVANTAGE_KEY || '';
-  const hasApiKey = Boolean(rawKey && rawKey.trim().length > 0);
-  const apiKey = hasApiKey ? rawKey.trim() : 'demo';
+  const { key: rawKey, source: keySource } = getRawApiKey();
+  const hasApiKey = Boolean(rawKey && rawKey.length > 0);
+  const apiKey = hasApiKey ? rawKey : 'demo';
   const maskedKey = hasApiKey
-    ? `${apiKey.slice(0, 3)}...${apiKey.slice(-4)} (${apiKey.length} chars)`
+    ? `${apiKey.slice(0, 3)}...${apiKey.slice(-4)} (${apiKey.length} chars, from ${keySource})`
     : 'Not configured (using demo fallback)';
 
   // Test real-time connection to Alpha Vantage for USD -> SGD
@@ -157,9 +186,9 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
     }
   }
 
-  const rawKey = process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHAVANTAGE_KEY || '';
-  const apiKey = rawKey && rawKey.trim().length > 0 ? rawKey.trim() : 'demo';
-  const maskedKey = apiKey.length > 6 ? `${apiKey.slice(0, 3)}...${apiKey.slice(-4)}` : 'demo';
+  const { key: rawKey, source: keySource } = getRawApiKey();
+  const apiKey = getApiKey();
+  const maskedKey = rawKey.length > 6 ? `${rawKey.slice(0, 3)}...${rawKey.slice(-4)}` : 'demo';
   const requestedUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${encodeURIComponent(from)}&to_currency=${encodeURIComponent(to)}&apikey=${encodeURIComponent(apiKey)}`;
   const displayUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=${maskedKey}`;
 
@@ -453,4 +482,10 @@ async function startServer() {
   });
 }
 
-startServer();
+// Only start standalone HTTP server when not running in a serverless environment (e.g., Vercel)
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
+export { app };
