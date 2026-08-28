@@ -53,6 +53,7 @@ export default function App() {
         onTabChange={handleTabChange}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        onSelectPair={(from, to) => handleSelectPairForConvert(from, to, 100000)}
       />
 
       {/* Main Content Area */}

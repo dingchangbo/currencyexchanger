@@ -284,16 +284,77 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
 
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs">
             <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-1">
-              <span>Data Feed & Origin</span>
+              <span>Alpha Vantage FX Feed</span>
               <BarChart2 className="w-3.5 h-3.5 text-slate-400" />
             </div>
             <p className="text-base font-bold text-blue-700 truncate">
-              {rateData?.source || 'Alpha Vantage Real-Time'}
+              {rateData?.source || 'Alpha Vantage CURRENCY_EXCHANGE_RATE'}
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Updated: {rateData?.lastRefreshed || 'Real-time'}
+              Refreshed: {rateData?.lastRefreshed || 'Real-time'} ({rateData?.timeZone || 'UTC'})
             </p>
           </div>
+        </div>
+
+        {/* Alpha Vantage Exchange Details Card */}
+        {rateData && (
+          <div className="mt-4 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-xs text-slate-600 space-y-2">
+            <div className="flex items-center justify-between font-semibold text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <Radio className="w-3 h-3 text-emerald-600 animate-pulse" />
+                <span>Alpha Vantage Exchange Rate Details</span>
+              </span>
+              <span className="text-[11px] font-mono text-slate-500">
+                {rateData.from} → {rateData.to}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60 font-mono">
+              <div className="bg-white p-2 rounded-lg border border-slate-200/60">
+                <span className="block text-[10px] uppercase font-sans text-slate-400">Rate</span>
+                <span className="font-bold text-slate-900">{rateData.exchangeRate.toFixed(rateDecimals)}</span>
+              </div>
+              <div className="bg-white p-2 rounded-lg border border-slate-200/60">
+                <span className="block text-[10px] uppercase font-sans text-slate-400">Bid Price</span>
+                <span className="font-bold text-slate-900">{rateData.bidPrice.toFixed(rateDecimals)}</span>
+              </div>
+              <div className="bg-white p-2 rounded-lg border border-slate-200/60">
+                <span className="block text-[10px] uppercase font-sans text-slate-400">Ask Price</span>
+                <span className="font-bold text-slate-900">{rateData.askPrice.toFixed(rateDecimals)}</span>
+              </div>
+              <div className="bg-white p-2 rounded-lg border border-slate-200/60">
+                <span className="block text-[10px] uppercase font-sans text-slate-400">Spread</span>
+                <span className="font-bold text-slate-900">{rateData.spread.toFixed(rateDecimals)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Common Pairs */}
+        <div className="mt-4 flex items-center justify-center flex-wrap gap-2">
+          <span className="text-xs font-semibold text-slate-400 mr-1">Popular Pairs:</span>
+          {[
+            { from: 'USD', to: 'SGD' },
+            { from: 'EUR', to: 'USD' },
+            { from: 'GBP', to: 'USD' },
+            { from: 'USD', to: 'JPY' },
+            { from: 'AUD', to: 'USD' },
+            { from: 'USD', to: 'CAD' },
+          ].map((pair) => (
+            <button
+              key={`${pair.from}-${pair.to}`}
+              onClick={() => {
+                setFromCurrency(pair.from);
+                setToCurrency(pair.to);
+              }}
+              className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-medium ${
+                fromCurrency === pair.from && toCurrency === pair.to
+                  ? 'bg-[#0a2540] text-white border-[#0a2540]'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+              }`}
+            >
+              {pair.from}/{pair.to}
+            </button>
+          ))}
         </div>
 
         {/* Trust & Live Feed Badges */}

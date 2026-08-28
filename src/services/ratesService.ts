@@ -3,10 +3,15 @@ import { calculateRate, INITIAL_MARKET_RATES } from '../data/currencies';
 
 export async function fetchRealtimeExchangeRate(
   from: string,
-  to: string
+  to: string,
+  nocache: boolean = false
 ): Promise<RealtimeExchangeRate> {
   try {
-    const res = await fetch(`/api/rates/exchange-rate?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    const res = await fetch(
+      `/api/rates/exchange-rate?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${
+        nocache ? '&nocache=true' : ''
+      }`
+    );
     if (!res.ok) {
       throw new Error(`API error ${res.status}`);
     }
@@ -26,7 +31,7 @@ export async function fetchRealtimeExchangeRate(
       askPrice: rate + spread / 2,
       spread,
       lastRefreshed: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-      source: 'Interbank Feed',
+      source: 'Alpha Vantage Gateway',
       isLive: true,
     };
   }

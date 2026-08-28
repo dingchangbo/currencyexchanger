@@ -46,23 +46,43 @@ function getFallbackRate(from: string, to: string): number {
 }
 
 function getApiKey(): string {
-  return process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHAVANTAGE_KEY || 'demo';
+  const key = process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHAVANTAGE_KEY;
+  return key && key.trim().length > 0 ? key.trim() : 'demo';
 }
+
+// Health Check Endpoint
+app.get('/api/health', (req, res) => {
+  const hasApiKey = Boolean(
+    (process.env.ALPHAVANTAGE_API_KEY && process.env.ALPHAVANTAGE_API_KEY.trim().length > 0) ||
+    (process.env.ALPHAVANTAGE_KEY && process.env.ALPHAVANTAGE_KEY.trim().length > 0)
+  );
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    service: 'GlobalFX Backend API',
+    alphavantageKeyConfigured: hasApiKey,
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
 
 // 1. Real-time Exchange Rate Endpoint (Alpha Vantage CURRENCY_EXCHANGE_RATE)
 app.get('/api/rates/exchange-rate', async (req, res) => {
-  const from = ((req.query.from as string) || 'USD').toUpperCase();
-  const to = ((req.query.to as string) || 'SGD').toUpperCase();
+  const from = ((req.query.from as string) || 'USD').toUpperCase().trim();
+  const to = ((req.query.to as string) || 'SGD').toUpperCase().trim();
+  const nocache = req.query.nocache === 'true';
   const cacheKey = `rate_${from}_${to}`;
 
-  // Check cache
-  const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return res.json({ ...cached.data, cached: true });
+  // Check cache unless nocache is requested
+  if (!nocache) {
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 15000) { // 15s quick cache
+      return res.json({ ...cached.data, cached: true });
+    }
   }
 
   const apiKey = getApiKey();
-  const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=${apiKey}`;
+  const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${encodeURIComponent(from)}&to_currency=${encodeURIComponent(to)}&apikey=${encodeURIComponent(apiKey)}`;
 
   try {
     const response = await fetch(url);
@@ -77,9 +97,9 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
       const lastRefreshed = fxData['6. Last Refreshed'] || new Date().toISOString();
 
       const result = {
-        from,
-        to,
+        from: fxData['1. From_Currency Code'] || from,
         fromName: fxData['2. From_Currency Name'] || from,
+        to: fxData['3. To_Currency Code'] || to,
         toName: fxData['4. To_Currency Name'] || to,
         exchangeRate: rate,
         bidPrice: bid,
@@ -104,8 +124,8 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
 
     const result = {
       from,
-      to,
       fromName: from,
+      to,
       toName: to,
       exchangeRate: liveRate,
       bidPrice: bid,
@@ -125,12 +145,15 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
     const fallbackRate = getFallbackRate(from, to);
     return res.json({
       from,
+      fromName: from,
       to,
+      toName: to,
       exchangeRate: fallbackRate,
       bidPrice: fallbackRate * 0.9998,
       askPrice: fallbackRate * 1.0002,
       spread: fallbackRate * 0.0004,
       lastRefreshed: new Date().toISOString(),
+      timeZone: 'UTC',
       source: 'Alpha Vantage Gateway',
       isLive: false,
     });
