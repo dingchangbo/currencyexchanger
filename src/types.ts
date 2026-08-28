@@ -67,6 +67,8 @@ export interface RealtimeExchangeRate {
   cached?: boolean;
   apiStatus?: 'ACTIVE' | 'RATE_LIMITED' | 'NOTICE' | 'ERROR';
   apiMessage?: string;
+  errorMessage?: string;
+  rawError?: string;
   requestedUrl?: string;
   note?: string;
 }

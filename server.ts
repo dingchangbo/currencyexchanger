@@ -165,6 +165,30 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
 
   try {
     const response = await fetch(requestedUrl, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) {
+      const statusText = response.statusText || 'Server Error';
+      const errMsg = `HTTP ${response.status}: ${statusText}`;
+      const fallbackRate = getFallbackRate(from, to);
+      return res.json({
+        from,
+        fromName: from,
+        to,
+        toName: to,
+        exchangeRate: fallbackRate,
+        bidPrice: fallbackRate * 0.9998,
+        askPrice: fallbackRate * 1.0002,
+        spread: fallbackRate * 0.0004,
+        lastRefreshed: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+        timeZone: 'UTC',
+        source: 'Interbank Benchmark (API HTTP Error)',
+        isLive: false,
+        apiStatus: 'ERROR',
+        errorMessage: errMsg,
+        apiMessage: errMsg,
+        requestedUrl: displayUrl,
+      });
+    }
+
     const data = await response.json();
 
     const fxData = data['Realtime Currency Exchange Rate'];
@@ -196,10 +220,15 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
       return res.json(result);
     }
 
-    const apiNotice = data['Information'] || data['Note'] || data['Error Message'] || '';
+    // Check specific error messages returned by Alpha Vantage
+    const alphaErrorMessage = data['Error Message'];
+    const alphaNote = data['Note'];
+    const alphaInfo = data['Information'];
+    const apiNotice = alphaErrorMessage || alphaNote || alphaInfo || '';
+    const apiStatus = alphaErrorMessage ? 'ERROR' : alphaNote ? 'RATE_LIMITED' : alphaInfo ? 'NOTICE' : 'ERROR';
 
     // If key has hit rate limit, attempt fallback check with demo key
-    if (apiKey !== 'demo') {
+    if (apiKey !== 'demo' && !alphaErrorMessage) {
       try {
         const demoUrl = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${encodeURIComponent(from)}&to_currency=${encodeURIComponent(to)}&apikey=demo`;
         const demoRes = await fetch(demoUrl, { signal: AbortSignal.timeout(4000) });
@@ -234,7 +263,7 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
       }
     }
 
-    // Benchmark calculation when Alpha Vantage quota/rate limit is reached
+    // Benchmark calculation when Alpha Vantage quota/rate limit or error occurs
     const fallbackRate = getFallbackRate(from, to);
     const bid = fallbackRate * 0.9998;
     const ask = fallbackRate * 1.0002;
@@ -250,10 +279,11 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
       spread: Math.abs(ask - bid),
       lastRefreshed: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
       timeZone: 'UTC',
-      source: 'Interbank Benchmark (Alpha Vantage rate limit reached)',
+      source: alphaErrorMessage ? 'Interbank Benchmark (Alpha Vantage API Error)' : 'Interbank Benchmark (Alpha Vantage Rate Limit)',
       isLive: false,
-      apiStatus: 'RATE_LIMITED',
-      apiMessage: apiNotice || 'Alpha Vantage rate limit reached (25 requests/day standard limit).',
+      apiStatus: apiStatus,
+      errorMessage: alphaErrorMessage || (alphaNote ? `Alpha Vantage Rate Limit: ${alphaNote}` : alphaInfo ? `Alpha Vantage Notice: ${alphaInfo}` : 'Alpha Vantage returned no exchange rate data for this query.'),
+      apiMessage: apiNotice || 'Alpha Vantage query failed or daily request quota reached.',
       requestedUrl: displayUrl,
       note: apiNotice,
     };
@@ -272,11 +302,12 @@ app.get('/api/rates/exchange-rate', async (req, res) => {
       bidPrice: fallbackRate * 0.9998,
       askPrice: fallbackRate * 1.0002,
       spread: fallbackRate * 0.0004,
-      lastRefreshed: new Date().toISOString(),
+      lastRefreshed: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
       timeZone: 'UTC',
       source: 'Interbank Gateway (Network Offline)',
       isLive: false,
       apiStatus: 'ERROR',
+      errorMessage: error.message || 'Connection error to Alpha Vantage',
       apiMessage: error.message || 'Connection error to Alpha Vantage',
       requestedUrl: displayUrl,
     });

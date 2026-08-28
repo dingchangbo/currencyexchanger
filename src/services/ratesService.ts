@@ -13,7 +13,7 @@ export async function fetchRealtimeExchangeRate(
       }`
     );
     if (!res.ok) {
-      throw new Error(`API returned HTTP ${res.status}`);
+      throw new Error(`Server returned HTTP ${res.status}: ${res.statusText}`);
     }
     const data: RealtimeExchangeRate = await res.json();
     return data;
@@ -21,6 +21,7 @@ export async function fetchRealtimeExchangeRate(
     console.warn('Realtime rate fetch failed:', error);
     const rate = calculateRate(from, to);
     const spread = rate * 0.0004;
+    const errMsg = error?.message || 'Failed to connect to API endpoint';
     return {
       from,
       to,
@@ -31,20 +32,21 @@ export async function fetchRealtimeExchangeRate(
       askPrice: rate + spread / 2,
       spread,
       lastRefreshed: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-      source: 'Interbank Estimate (Network Error)',
+      source: 'Interbank Estimate (Network Offline)',
       isLive: false,
       apiStatus: 'ERROR',
-      apiMessage: error.message || 'Failed to connect to API',
+      errorMessage: errMsg,
+      apiMessage: errMsg,
       requestedUrl: `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=...`,
     };
   }
 }
 
-export async function fetchAllMarketRates(): Promise<{ rates: MarketRate[]; source: string }> {
+export async function fetchAllMarketRates(): Promise<{ rates: MarketRate[]; source: string; error?: string }> {
   try {
     const res = await fetch('/api/rates/all');
     if (!res.ok) {
-      throw new Error(`API error ${res.status}`);
+      throw new Error(`Server returned HTTP ${res.status}: ${res.statusText}`);
     }
     const data = await res.json();
     const formattedRates = data.rates.map((r: any) => ({
@@ -52,25 +54,25 @@ export async function fetchAllMarketRates(): Promise<{ rates: MarketRate[]; sour
       lastUpdated: new Date(r.lastUpdated),
     }));
     return { rates: formattedRates, source: data.source };
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Market rates fetch failed, using fallback data:', error);
-    return { rates: INITIAL_MARKET_RATES, source: 'Interbank Feed' };
+    return { rates: INITIAL_MARKET_RATES, source: 'Interbank Feed', error: error?.message || 'Failed to load live market feed' };
   }
 }
 
 export async function fetchTimeSeries(
   from: string,
   to: string
-): Promise<{ points: TimeSeriesPoint[]; source: string }> {
+): Promise<{ points: TimeSeriesPoint[]; source: string; error?: string }> {
   try {
     const res = await fetch(`/api/rates/time-series?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
     if (!res.ok) {
-      throw new Error(`API error ${res.status}`);
+      throw new Error(`Server returned HTTP ${res.status}: ${res.statusText}`);
     }
     const data = await res.json();
     return { points: data.points || [], source: data.source };
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Time series fetch failed, using fallback:', error);
-    return { points: [], source: 'Fallback' };
+    return { points: [], source: 'Fallback', error: error?.message || 'Failed to fetch historical series' };
   }
 }

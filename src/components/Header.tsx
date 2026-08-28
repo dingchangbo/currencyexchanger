@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ArrowRight, RefreshCw, X, Radio, Sparkles } from 'lucide-react';
+import { Search, ArrowRight, RefreshCw, X, Radio, Sparkles, AlertCircle } from 'lucide-react';
 import { ActiveTab, RealtimeExchangeRate } from '../types';
 import { CURRENCIES } from '../data/currencies';
 import { fetchRealtimeExchangeRate } from '../services/ratesService';
@@ -87,8 +87,11 @@ export const Header: React.FC<HeaderProps> = ({
       try {
         const data = await fetchRealtimeExchangeRate(pair.from, pair.to, true);
         setLiveSearchResult(data);
+        if (data.apiStatus === 'ERROR' && data.errorMessage) {
+          setSearchError(data.errorMessage);
+        }
       } catch (err: any) {
-        setSearchError('Unable to fetch live rate');
+        setSearchError(err?.message || 'Failed to connect to Alpha Vantage API');
       } finally {
         setIsSearchingLive(false);
       }
@@ -247,8 +250,9 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
 
                       {liveSearchResult.requestedUrl && (
-                        <div className="mt-2 text-[10px] font-mono text-slate-500 bg-slate-100 p-1.5 rounded truncate">
-                          URL: {liveSearchResult.requestedUrl}
+                        <div className="mt-2 text-[10px] font-mono text-slate-600 bg-slate-100 p-2 rounded border border-slate-200 break-all select-all">
+                          <span className="font-sans font-bold text-slate-500 uppercase mr-1">API URL:</span>
+                          {liveSearchResult.requestedUrl}
                         </div>
                       )}
 
@@ -267,7 +271,15 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </div>
                 ) : searchError ? (
-                  <div className="p-3 text-center text-xs text-rose-600">{searchError}</div>
+                  <div className="p-3 bg-rose-50/60 border-t border-rose-100 text-xs">
+                    <div className="flex items-start gap-2 text-rose-700 font-semibold mb-1">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <span>API Call Error</span>
+                    </div>
+                    <p className="text-rose-600 font-mono text-[11px] bg-white p-2 rounded border border-rose-200 break-all select-all">
+                      {searchError}
+                    </p>
+                  </div>
                 ) : (
                   <div className="p-3 text-center text-xs text-slate-400">
                     Press Enter or click "Go" to look up live rate from Alpha Vantage.

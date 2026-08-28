@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpDown, Plus, TrendingUp, TrendingDown, Minus, Trash2, X, Calculator, Radio } from 'lucide-react';
+import { ArrowUpDown, Plus, TrendingUp, TrendingDown, Minus, Trash2, X, Calculator, Radio, RefreshCw, AlertCircle } from 'lucide-react';
 import { INITIAL_FAVORITE_PAIRS, CURRENCIES, calculateRate } from '../data/currencies';
 import { FavoritePair } from '../types';
 import { fetchRealtimeExchangeRate } from '../services/ratesService';
@@ -15,6 +15,9 @@ export const FavoritePairsView: React.FC<FavoritePairsViewProps> = ({
   onNavigateToConverter,
 }) => {
   const [favoritePairs, setFavoritePairs] = useState<FavoritePair[]>(INITIAL_FAVORITE_PAIRS);
+  const [secondsRemaining, setSecondsRemaining] = useState(30);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   
   // Per-card sell amount state
   const [sellAmounts, setSellAmounts] = useState<Record<string, number>>({
@@ -28,32 +31,56 @@ export const FavoritePairsView: React.FC<FavoritePairsViewProps> = ({
   const [newBase, setNewBase] = useState('AUD');
   const [newQuote, setNewQuote] = useState('USD');
 
-  // Refresh live rates for favorite pairs on mount and periodic tick
-  useEffect(() => {
-    const updateRates = async () => {
+  const updateRates = async () => {
+    setIsUpdating(true);
+    let lastError: string | null = null;
+    try {
       const updated = await Promise.all(
         favoritePairs.map(async (pair) => {
           try {
             const data = await fetchRealtimeExchangeRate(pair.base, pair.quote);
+            if (data.apiStatus === 'ERROR' && data.errorMessage) {
+              lastError = `${pair.base}/${pair.quote}: ${data.errorMessage}`;
+            }
             if (data.exchangeRate) {
               return {
                 ...pair,
                 rate: Number(data.exchangeRate.toFixed(pair.quote === 'JPY' ? 2 : 4)),
               };
             }
-          } catch {
-            // Keep existing rate
+          } catch (err: any) {
+            lastError = `${pair.base}/${pair.quote}: ${err?.message || 'Failed to fetch'}`;
           }
           return pair;
         })
       );
       setFavoritePairs(updated);
-    };
+      setApiError(lastError);
+    } catch (err: any) {
+      setApiError(err?.message || 'Failed to update rates');
+    } finally {
+      setIsUpdating(false);
+      setSecondsRemaining(30);
+    }
+  };
 
+  // Refresh live rates for favorite pairs on mount and periodic tick
+  useEffect(() => {
     updateRates();
-    const interval = setInterval(updateRates, 30000);
-    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          updateRates();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [favoritePairs]);
 
   // Handle Sell Amount change
   const handleAmountChange = (pairId: string, value: string) => {
@@ -175,9 +202,21 @@ export const FavoritePairsView: React.FC<FavoritePairsViewProps> = ({
           <h1 className="text-3xl sm:text-4xl font-black text-[#0a2540] tracking-tight">
             Favorite Pairs
           </h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Compare and calculate live interbank rates across your monitored currency pairs.
-          </p>
+          <div className="text-sm text-slate-600 mt-1 flex flex-wrap items-center gap-3">
+            <span>Compare and calculate live interbank rates across your monitored currency pairs.</span>
+            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded-md">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Live refresh in <strong className="text-slate-800 font-mono">00:{secondsRemaining.toString().padStart(2, '0')}</strong></span>
+              <button
+                onClick={updateRates}
+                title="Refresh favorite rates now"
+                className="inline-flex items-center text-blue-600 hover:text-blue-800 font-semibold cursor-pointer ml-1"
+              >
+                <RefreshCw className={`w-3 h-3 mr-0.5 ${isUpdating ? 'animate-spin' : ''}`} />
+                Sync
+              </button>
+            </div>
+          </div>
         </div>
 
         <button
@@ -189,6 +228,28 @@ export const FavoritePairsView: React.FC<FavoritePairsViewProps> = ({
           <span>Add Custom Pair</span>
         </button>
       </div>
+
+      {/* API Error Banner if present */}
+      {apiError && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-rose-900">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-rose-800">Alpha Vantage / Favorite Pairs API Error</p>
+              <p className="font-mono text-[11px] text-rose-700 mt-0.5 break-all select-all bg-white/80 p-1.5 rounded border border-rose-200">
+                {apiError}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={updateRates}
+            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs transition-colors shrink-0 cursor-pointer flex items-center gap-1.5"
+          >
+            <RefreshCw className={`w-3 h-3 ${isUpdating ? 'animate-spin' : ''}`} />
+            Retry Sync
+          </button>
+        </div>
+      )}
 
       {/* Grid: 3 Favorite Pair Cards + 1 Add Card */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

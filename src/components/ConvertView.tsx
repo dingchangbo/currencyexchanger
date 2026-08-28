@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowUpDown, Info, Globe, Shield, Zap, ChevronDown, RefreshCw, BarChart2, Radio } from 'lucide-react';
+import { ArrowUpDown, Info, Globe, Shield, Zap, ChevronDown, RefreshCw, BarChart2, Radio, Copy, Check, AlertCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { CURRENCIES, calculateRate } from '../data/currencies';
 import { CurrencySelectModal } from './CurrencySelectModal';
 import { fetchRealtimeExchangeRate } from '../services/ratesService';
@@ -20,6 +20,7 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
 }) => {
   const [fromCurrency, setFromCurrency] = useState(initialFromCurrency);
   const [toCurrency, setToCurrency] = useState(initialToCurrency);
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const [payAmountStr, setPayAmountStr] = useState(
     initialAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   );
@@ -50,13 +51,29 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
       console.error('Failed to load real-time rate:', err);
     } finally {
       setIsLoadingRate(false);
-      setSecondsRemaining(60);
+      setSecondsRemaining(30);
     }
   }, []);
 
-  // Fetch when currencies change
+  // Fetch when currencies change and reset countdown
   useEffect(() => {
     loadLiveRate(fromCurrency, toCurrency, false);
+    setSecondsRemaining(30);
+  }, [fromCurrency, toCurrency, loadLiveRate]);
+
+  // Live Refresh Clock Countdown (every second)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          loadLiveRate(fromCurrency, toCurrency, false);
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, [fromCurrency, toCurrency, loadLiveRate]);
 
   const handlePayAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,19 +300,41 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
 
         {/* Alpha Vantage Exchange Details Card */}
         {rateData && (
-          <div className="mt-4 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-xs text-slate-600 space-y-2">
-            <div className="flex items-center justify-between font-semibold text-slate-700">
+          <div className={`mt-4 rounded-xl p-3.5 text-xs space-y-2 border transition-all ${
+            rateData.apiStatus === 'ERROR'
+              ? 'bg-rose-50/50 border-rose-200 text-rose-900'
+              : rateData.apiStatus === 'RATE_LIMITED'
+              ? 'bg-amber-50/50 border-amber-200 text-amber-900'
+              : 'bg-slate-50 border-slate-200/80 text-slate-600'
+          }`}>
+            <div className="flex items-center justify-between font-semibold">
               <span className="flex items-center gap-1.5">
-                <Radio className="w-3 h-3 text-emerald-600 animate-pulse" />
-                <span>Alpha Vantage Exchange Rate Details</span>
+                {rateData.apiStatus === 'ERROR' ? (
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                ) : rateData.apiStatus === 'RATE_LIMITED' ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                ) : (
+                  <Radio className="w-3 h-3 text-emerald-600 animate-pulse shrink-0" />
+                )}
+                <span className={rateData.apiStatus === 'ERROR' ? 'text-rose-900 font-bold' : rateData.apiStatus === 'RATE_LIMITED' ? 'text-amber-900 font-bold' : 'text-slate-700'}>
+                  {rateData.apiStatus === 'ERROR' ? 'Alpha Vantage API Error' : rateData.apiStatus === 'RATE_LIMITED' ? 'Alpha Vantage Rate Limit Quota' : 'Alpha Vantage Exchange Rate Details'}
+                </span>
               </span>
               <div className="flex items-center gap-2">
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    rateData.isLive ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    rateData.apiStatus === 'ERROR'
+                      ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                      : rateData.isLive
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-amber-100 text-amber-800 border border-amber-200'
                   }`}
                 >
-                  {rateData.isLive ? 'Live API Feed' : 'Rate Limited / Benchmark'}
+                  {rateData.apiStatus === 'ERROR'
+                    ? 'API Call Failed'
+                    : rateData.isLive
+                    ? 'Live API Feed Active'
+                    : 'Rate Limited / Benchmark'}
                 </span>
                 <span className="text-[11px] font-mono text-slate-500">
                   {rateData.from} → {rateData.to}
@@ -303,18 +342,69 @@ export const ConvertView: React.FC<ConvertViewProps> = ({
               </div>
             </div>
 
-            {/* Requested API Endpoint URL */}
-            {rateData.requestedUrl && (
-              <div className="text-[11px] font-mono bg-white p-2 rounded-lg border border-slate-200 text-slate-600 truncate">
-                <span className="text-slate-400 font-sans font-bold mr-1 text-[10px] uppercase">API Endpoint:</span>
-                {rateData.requestedUrl}
+            {/* Exact API Error Box if call failed */}
+            {(rateData.apiStatus === 'ERROR' || rateData.errorMessage) && (
+              <div className="bg-rose-100/70 border border-rose-300/80 rounded-lg p-2.5 text-rose-900 space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-rose-700">
+                  <span className="flex items-center gap-1">
+                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                    Exact API Error Response:
+                  </span>
+                  <span className="text-[10px] font-mono lowercase text-rose-600">status: {rateData.apiStatus}</span>
+                </div>
+                <div className="font-mono text-xs bg-white text-rose-800 p-2 rounded border border-rose-200 break-all select-all font-semibold leading-relaxed">
+                  {rateData.errorMessage || rateData.apiMessage || 'Unknown error occurred while contacting Alpha Vantage API'}
+                </div>
               </div>
             )}
 
-            {/* If rate limited or note from Alpha Vantage */}
-            {rateData.apiMessage && (
-              <div className="text-[11px] bg-amber-50 border border-amber-200 text-amber-800 p-2 rounded-lg">
-                <span className="font-bold">Alpha Vantage Notice:</span> {rateData.apiMessage}
+            {/* If rate limited notice from Alpha Vantage */}
+            {rateData.apiStatus === 'RATE_LIMITED' && !rateData.errorMessage && rateData.apiMessage && (
+              <div className="bg-amber-100/80 border border-amber-300/80 rounded-lg p-2.5 text-amber-900 space-y-1">
+                <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  Alpha Vantage Rate Limit Notice:
+                </div>
+                <div className="font-mono text-xs bg-white text-amber-900 p-2 rounded border border-amber-200 break-all select-all leading-relaxed">
+                  {rateData.apiMessage}
+                </div>
+              </div>
+            )}
+
+            {/* Requested API Endpoint URL */}
+            {rateData.requestedUrl && (
+              <div className="text-[11px] font-mono bg-white p-2.5 rounded-lg border border-slate-200 text-slate-700">
+                <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-slate-100">
+                  <span className="text-slate-500 font-sans font-bold text-[10px] uppercase tracking-wider">
+                    Full Alpha Vantage API Endpoint:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (rateData.requestedUrl) {
+                        navigator.clipboard.writeText(rateData.requestedUrl);
+                        setCopiedUrl(true);
+                        setTimeout(() => setCopiedUrl(false), 2000);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-sans font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                  >
+                    {copiedUrl ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-600">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy URL</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="break-all font-mono leading-relaxed text-slate-800 select-all bg-slate-50 p-2 rounded border border-slate-100 text-[11px]">
+                  {rateData.requestedUrl}
+                </div>
               </div>
             )}
 
